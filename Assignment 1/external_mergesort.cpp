@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 using namespace std;
 
 int main(int argc, char *argv[]){
@@ -8,13 +9,17 @@ int main(int argc, char *argv[]){
     }
 
     string keys_file = argv[1];
-    int m = atoi(argv[2]); // size of available memory in number of blocks
-    int k = atoi(argv[3]); // size of each key in bytes
-    int n = atoi(argv[4]); // total number of keys
-    int b = atoi(argv[5]); // disk block size in bytes
+    int mem_size = atoi(argv[2]); // size of available memory in number of blocks
+    int key_size = atoi(argv[3]); // size of each key in bytes
+    int num_keys = atoi(argv[4]); // total number of keys
+    int block_size = atoi(argv[5]); // disk block size in bytes
+
+    int num_keys_block = block_size / key_size;
+
+    vector<vector<int>> memory; // max size = mem_size * num_keys_block
 
     int num_seeks = 0, num_transfers = 0;
     int num_merge_passes = 0;
-
+    
     return 0;
 }
