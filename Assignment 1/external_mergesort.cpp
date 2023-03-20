@@ -19,11 +19,11 @@ void read_keys(string keys_file, vector<vector<int>> &keys, int num_keys, int nu
     }
 }
 
-void create_sorted_runs(vector<vector<int>> &keys, vector<vector<int>> &sorted_runs, vector<int> &memory, int mem_size, int num_keys_block){
+void create_sorted_runs(vector<vector<int>> &keys, vector<vector<vector<int>>> &sorted_runs, vector<int> &memory, int mem_size, int num_keys_block){
     int num_blocks_keys_file = keys.size();
 
     for(int i = 0; i < num_blocks_keys_file; i += mem_size){
-        // reading mem_size blocks at a time
+        // reading mem_size blocks into memory
         for(int j = 0; j < mem_size; j++){
             if(i + j == num_blocks_keys_file){
                 break;
@@ -39,12 +39,13 @@ void create_sorted_runs(vector<vector<int>> &keys, vector<vector<int>> &sorted_r
         sort(memory.begin(), memory.end());
 
         // writing the sorted run to disk
+        sorted_runs.push_back(vector<vector<int>>());
         for(int j = 0; j < memory.size(); j++){
-            if(sorted_runs.empty() || sorted_runs.back().size() == num_keys_block){
-                sorted_runs.push_back(vector<int>());
+            if(sorted_runs.back().empty() || sorted_runs.back().back().size() == num_keys_block){
+                sorted_runs.back().push_back(vector<int>());
             }
 
-            sorted_runs.back().push_back(memory[j]);
+            sorted_runs.back().back().push_back(memory[j]);
         }
 
         // clearing the memory
@@ -72,7 +73,7 @@ int main(int argc, char *argv[]){
 
     vector<int> memory; // max size = mem_size * num_keys_block
 
-    vector<vector<int>> sorted_runs;
+    vector<vector<vector<int>>> sorted_runs; // runs x blocks x keys
     create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block);
 
     int num_seeks = 0, num_transfers = 0;
