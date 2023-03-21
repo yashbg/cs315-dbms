@@ -101,6 +101,12 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
                 block_idx[run_idx]++;
             }
         }
+
+        if(!memory.empty()){
+            // writing the remaining elements in memory to disk
+            merge_pass_output.back().push_back(memory);
+            memory.clear();
+        }
     }
 }
 
@@ -119,6 +125,13 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<vector<int>>>
     merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block);
 }
 
+void external_mergesort(vector<vector<int>> &keys, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block){
+    vector<vector<vector<int>>> sorted_runs; // runs * blocks * keys
+
+    create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block);
+    merge(sorted_runs, merge_pass_output, memory, mem_size, num_keys_block);
+}
+
 int main(int argc, char *argv[]){
     if(argc != 6){
         cout << "Please enter exactly 5 arguments other than the program name. " << endl;
@@ -131,22 +144,16 @@ int main(int argc, char *argv[]){
     int num_keys = atoi(argv[4]); // total number of keys
     int block_size = atoi(argv[5]); // disk block size in bytes
 
-    int num_keys_block = block_size / key_size;
+    int num_seeks = 0, num_transfers = 0;
+    int num_merge_passes = 0;
 
-    int num_blocks_keys_file = ceil((double) num_keys / num_keys_block);
-    vector<vector<int>> keys; // num_blocks_keys_file * num_keys_block
+    int num_keys_block = block_size / key_size;
+    vector<vector<int>> keys; // blocks * keys
     read_keys(keys_file, keys, num_keys, num_keys_block);
 
     vector<int> memory; // max size = mem_size * num_keys_block
-
-    vector<vector<vector<int>>> sorted_runs; // runs x blocks x keys
-    create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block);
-
     vector<vector<vector<int>>> merge_pass_output;
-    merge(sorted_runs, merge_pass_output, memory, mem_size, num_keys_block);
-
-    int num_seeks = 0, num_transfers = 0;
-    int num_merge_passes = 0;
+    external_mergesort(keys, merge_pass_output, memory, mem_size, num_keys_block);
     
     return 0;
 }
