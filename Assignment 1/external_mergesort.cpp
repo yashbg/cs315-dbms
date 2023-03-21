@@ -130,7 +130,7 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &merges
     vector<vector<vector<int>>> merge_pass_output;
     int num_runs = merge_passes.back().size();
 
-    while(num_runs >= mem_size){
+    while(num_runs > 1){
         merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
         num_merge_passes++;
 
@@ -139,10 +139,6 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &merges
         merge_pass_output.clear();
     }
 
-    merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
-    num_merge_passes++;
-    
-    merge_passes.push_back(merge_pass_output);
     mergesort_output = merge_passes.back()[0];
 }
 
