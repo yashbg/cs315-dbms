@@ -7,7 +7,7 @@
 using namespace std;
 
 void read_keys(string keys_file, vector<vector<int>> &keys, int num_keys, int num_keys_block){
-    ifstream file(keys_file);
+    ifstream fin(keys_file);
 
     for(int i = 0; i < num_keys; i++){
         if(keys.empty() || keys.back().size() == num_keys_block){
@@ -15,7 +15,7 @@ void read_keys(string keys_file, vector<vector<int>> &keys, int num_keys, int nu
         }
 
         string str;
-        file >> str;
+        fin >> str;
         keys.back().push_back(stoi(str));
     }
 }
@@ -149,18 +149,23 @@ void external_mergesort(vector<vector<int>> &keys, vector<vector<int>> &mergesor
     merge(sorted_runs, mergesort_output, memory, mem_size, num_keys_block, num_seeks, num_transfers, num_merge_passes);
 }
 
-void print_output(vector<vector<int>> &mergesort_output, long long num_seeks, long long num_transfers, long long num_merge_passes){
-    cout << "Total number of disk seeks: " << num_seeks << endl;
-    cout << "Total number of disk transfers: " << num_transfers << endl;
-    cout << "Number of merge passes: " << num_merge_passes << endl;
-    cout << endl;
+void print_mergesort_summary(string output_file,long long num_seeks, long long num_transfers, long long num_merge_passes){
+    ofstream fout(output_file);
 
-    cout << "Sorted output: " << endl;
+    fout << "Total number of disk seeks: " << num_seeks << endl;
+    fout << "Total number of disk transfers: " << num_transfers << endl;
+    fout << "Number of merge passes: " << num_merge_passes << endl;
+}
+
+void print_sorted_output(string output_file, vector<vector<int>> &mergesort_output){
+    ofstream fout(output_file);
+
+    fout << "Sorted output with one block in every line:" << endl;
     for(int i = 0; i < mergesort_output.size(); i++){
         for(int j = 0; j < mergesort_output[i].size(); j++){
-            cout << mergesort_output[i][j] << " ";
+            fout << mergesort_output[i][j] << " ";
         }
-        cout << endl;
+        fout << endl;
     }
 }
 
@@ -187,7 +192,8 @@ int main(int argc, char *argv[]){
     vector<vector<int>> mergesort_output;
     external_mergesort(keys, mergesort_output, memory, mem_size, num_keys_block, num_seeks, num_transfers, num_merge_passes);
 
-    print_output(mergesort_output, num_seeks, num_transfers, num_merge_passes);
+    print_mergesort_summary("mergesort-summary.txt", num_seeks, num_transfers, num_merge_passes);
+    print_sorted_output("sorted-output.txt", mergesort_output);
     
     return 0;
 }
