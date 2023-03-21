@@ -54,12 +54,10 @@ void create_sorted_runs(vector<vector<int>> &keys, vector<vector<vector<int>>> &
     }
 }
 
-void merge_pass(vector<vector<vector<int>>> &sorted_runs, vector<int> &memory, int mem_size, int num_keys_block){
-    int num_runs = sorted_runs.size();
+void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block){
+    int num_runs = merge_pass_input.size();
     vector<int> block_idx(num_runs, 0);
     vector<int> num_keys_remaining(num_runs, 0);
-
-    vector<vector<vector<int>>> merge_pass_output;
     
     for(int i = 0; i < num_runs; i += mem_size - 1){
         merge_pass_output.push_back(vector<vector<int>>());
@@ -71,10 +69,10 @@ void merge_pass(vector<vector<vector<int>>> &sorted_runs, vector<int> &memory, i
                 break;
             }
 
-            for(int k = 0; k < sorted_runs[i + j][block_idx[i + j]].size(); k++){
-                memory_ordered.insert({sorted_runs[i + j][block_idx[i + j]][k], i + j});
+            for(int k = 0; k < merge_pass_input[i + j][block_idx[i + j]].size(); k++){
+                memory_ordered.insert({merge_pass_input[i + j][block_idx[i + j]][k], i + j});
             }
-            num_keys_remaining[i + j] = sorted_runs[i + j][block_idx[i + j]].size();
+            num_keys_remaining[i + j] = merge_pass_input[i + j][block_idx[i + j]].size();
             block_idx[i + j]++;
         }
 
@@ -94,16 +92,31 @@ void merge_pass(vector<vector<vector<int>>> &sorted_runs, vector<int> &memory, i
                 memory.clear();
             }
             
-            if(num_keys_remaining[run_idx] == 0 && block_idx[run_idx] < sorted_runs[run_idx].size()){
+            if(num_keys_remaining[run_idx] == 0 && block_idx[run_idx] < merge_pass_input[run_idx].size()){
                 // read next block
-                for(int j = 0; j < sorted_runs[run_idx][block_idx[run_idx]].size(); j++){
-                    memory_ordered.insert({sorted_runs[run_idx][block_idx[run_idx]][j], run_idx});
+                for(int j = 0; j < merge_pass_input[run_idx][block_idx[run_idx]].size(); j++){
+                    memory_ordered.insert({merge_pass_input[run_idx][block_idx[run_idx]][j], run_idx});
                 }
-                num_keys_remaining[run_idx] = sorted_runs[run_idx][block_idx[run_idx]].size();
+                num_keys_remaining[run_idx] = merge_pass_input[run_idx][block_idx[run_idx]].size();
                 block_idx[run_idx]++;
             }
         }
     }
+}
+
+void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block){
+    vector<vector<vector<int>>> merge_pass_input(sorted_runs);
+    int num_runs = merge_pass_input.size();
+
+    while(num_runs >= mem_size){
+        merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block);
+
+        merge_pass_input = merge_pass_output;
+        num_runs = merge_pass_input.size();
+        merge_pass_output.clear();
+    }
+
+    merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block);
 }
 
 int main(int argc, char *argv[]){
@@ -129,7 +142,8 @@ int main(int argc, char *argv[]){
     vector<vector<vector<int>>> sorted_runs; // runs x blocks x keys
     create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block);
 
-    merge_pass(sorted_runs, memory, mem_size, num_keys_block);
+    vector<vector<vector<int>>> merge_pass_output;
+    merge(sorted_runs, merge_pass_output, memory, mem_size, num_keys_block);
 
     int num_seeks = 0, num_transfers = 0;
     int num_merge_passes = 0;
