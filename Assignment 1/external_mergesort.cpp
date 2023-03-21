@@ -110,12 +110,13 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
     }
 }
 
-void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block){
+void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_merge_passes){
     vector<vector<vector<int>>> merge_pass_input(sorted_runs);
     int num_runs = merge_pass_input.size();
 
     while(num_runs >= mem_size){
         merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block);
+        num_merge_passes++;
 
         merge_pass_input = merge_pass_output;
         num_runs = merge_pass_input.size();
@@ -123,13 +124,14 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<vector<int>>>
     }
 
     merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block);
+    num_merge_passes++;
 }
 
-void external_mergesort(vector<vector<int>> &keys, vector<vector<vector<int>>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block){
+void external_mergesort(vector<vector<int>> &keys, vector<vector<vector<int>>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_merge_passes){
     vector<vector<vector<int>>> sorted_runs; // runs * blocks * keys
 
     create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block);
-    merge(sorted_runs, mergesort_output, memory, mem_size, num_keys_block);
+    merge(sorted_runs, mergesort_output, memory, mem_size, num_keys_block, num_merge_passes);
 }
 
 int main(int argc, char *argv[]){
@@ -144,8 +146,8 @@ int main(int argc, char *argv[]){
     int num_keys = atoi(argv[4]); // total number of keys
     int block_size = atoi(argv[5]); // disk block size in bytes
 
-    int num_seeks = 0, num_transfers = 0;
-    int num_merge_passes = 0;
+    long long num_seeks = 0, num_transfers = 0;
+    long long num_merge_passes = 0;
 
     int num_keys_block = block_size / key_size;
     vector<vector<int>> keys; // blocks * keys
@@ -153,7 +155,7 @@ int main(int argc, char *argv[]){
 
     vector<int> memory; // max size = mem_size * num_keys_block
     vector<vector<vector<int>>> mergesort_output;
-    external_mergesort(keys, mergesort_output, memory, mem_size, num_keys_block);
+    external_mergesort(keys, mergesort_output, memory, mem_size, num_keys_block, num_merge_passes);
     
     return 0;
 }
