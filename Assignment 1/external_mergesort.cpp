@@ -124,22 +124,26 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
 }
 
 void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_seeks, long long &num_transfers, long long &num_merge_passes){
-    vector<vector<vector<int>>> merge_pass_input(sorted_runs);
+    vector<vector<vector<vector<int>>>> merge_passes; // passes * runs * blocks * keys
+    merge_passes.push_back(sorted_runs);
+
     vector<vector<vector<int>>> merge_pass_output;
-    int num_runs = merge_pass_input.size();
+    int num_runs = merge_passes.back().size();
 
     while(num_runs >= mem_size){
-        merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
+        merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
         num_merge_passes++;
 
-        merge_pass_input = merge_pass_output;
-        num_runs = merge_pass_input.size();
+        merge_passes.push_back(merge_pass_output);
+        num_runs = merge_passes.back().size();
         merge_pass_output.clear();
     }
 
-    merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
+    merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
     num_merge_passes++;
-    mergesort_output = merge_pass_output[0];
+    
+    merge_passes.push_back(merge_pass_output);
+    mergesort_output = merge_passes.back()[0];
 }
 
 void external_mergesort(vector<vector<int>> &keys, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_seeks, long long &num_transfers, long long &num_merge_passes){
