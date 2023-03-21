@@ -125,11 +125,11 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<vector<int>>>
     merge_pass(merge_pass_input, merge_pass_output, memory, mem_size, num_keys_block);
 }
 
-void external_mergesort(vector<vector<int>> &keys, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block){
+void external_mergesort(vector<vector<int>> &keys, vector<vector<vector<int>>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block){
     vector<vector<vector<int>>> sorted_runs; // runs * blocks * keys
 
     create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block);
-    merge(sorted_runs, merge_pass_output, memory, mem_size, num_keys_block);
+    merge(sorted_runs, mergesort_output, memory, mem_size, num_keys_block);
 }
 
 int main(int argc, char *argv[]){
@@ -152,8 +152,8 @@ int main(int argc, char *argv[]){
     read_keys(keys_file, keys, num_keys, num_keys_block);
 
     vector<int> memory; // max size = mem_size * num_keys_block
-    vector<vector<vector<int>>> merge_pass_output;
-    external_mergesort(keys, merge_pass_output, memory, mem_size, num_keys_block);
+    vector<vector<vector<int>>> mergesort_output;
+    external_mergesort(keys, mergesort_output, memory, mem_size, num_keys_block);
     
     return 0;
 }
