@@ -20,8 +20,34 @@ void read_keys(string keys_file, vector<vector<int>> &keys, int num_keys, int nu
     }
 }
 
-void create_sorted_runs(vector<vector<int>> &keys, vector<vector<vector<int>>> &sorted_runs, vector<int> &memory, int mem_size, int num_keys_block, long long &num_seeks, long long &num_transfers){
+void print_sorted_runs_summary(string output_file, long long num_seeks, long long num_transfers, int num_runs){
+    ofstream fout(output_file);
+
+    fout << "Number of seeks in the sorted run phase: " << num_seeks << endl;
+    fout << "Number of transfers in the sorted run phase: " << num_transfers << endl;
+    fout << "Total cost of the sorted run phase: " << num_seeks << " disk seeks + " << num_transfers << " disk transfers" << endl;
+    fout << "Number of sorted runs: " << num_runs << endl;
+}
+
+void print_sorted_runs_output(string output_file, vector<vector<vector<int>>> &sorted_runs){
+    ofstream fout(output_file);
+
+    fout << "Sorted runs with one block per line:" << endl << endl;
+    for(int i = 0; i < sorted_runs.size(); i++){
+        fout << "Run " << i + 1 << ":" << endl;
+        for(int j = 0; j < sorted_runs[i].size(); j++){
+            for(int k = 0; k < sorted_runs[i][j].size(); k++){
+                fout << sorted_runs[i][j][k] << " ";
+            }
+            fout << endl;
+        }
+        fout << endl;
+    }
+}
+
+void create_sorted_runs(vector<vector<int>> &keys, vector<vector<vector<int>>> &sorted_runs, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers){
     int num_blocks_keys_file = keys.size();
+    long long num_seeks = 0, num_transfers = 0;
 
     for(int i = 0; i < num_blocks_keys_file; i += mem_size){
         // reading mem_size blocks into memory
@@ -56,12 +82,20 @@ void create_sorted_runs(vector<vector<int>> &keys, vector<vector<vector<int>>> &
         // clearing the memory
         memory.clear();
     }
+
+    total_seeks += num_seeks;
+    total_transfers += num_transfers;
+    int num_runs = sorted_runs.size();
+
+    print_sorted_runs_summary("sorted-runs-summary.txt", num_seeks, num_transfers, num_runs);
+    print_sorted_runs_output("sorted-runs-output.txt", sorted_runs);
 }
 
-void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_seeks, long long &num_transfers){
+void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers){
     int num_runs = merge_pass_input.size();
     vector<int> block_idx(num_runs, 0);
     vector<int> num_keys_remaining(num_runs, 0);
+    long long num_seeks = 0, num_transfers = 0;
     
     for(int i = 0; i < num_runs; i += mem_size - 1){
         merge_pass_output.push_back(vector<vector<int>>());
@@ -121,9 +155,12 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
             num_transfers++;
         }
     }
+
+    total_seeks += num_seeks;
+    total_transfers += num_transfers;
 }
 
-void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_seeks, long long &num_transfers, long long &num_merge_passes){
+void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers, long long &num_merge_passes){
     vector<vector<vector<vector<int>>>> merge_passes; // passes * runs * blocks * keys
     merge_passes.push_back(sorted_runs);
 
@@ -131,7 +168,7 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &merges
     int num_runs = merge_passes.back().size();
 
     while(num_runs > 1){
-        merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, num_seeks, num_transfers);
+        merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, total_seeks, total_transfers);
         num_merge_passes++;
 
         merge_passes.push_back(merge_pass_output);
@@ -142,31 +179,35 @@ void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &merges
     mergesort_output = merge_passes.back()[0];
 }
 
-void external_mergesort(vector<vector<int>> &keys, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &num_seeks, long long &num_transfers, long long &num_merge_passes){
-    vector<vector<vector<int>>> sorted_runs; // runs * blocks * keys
-
-    create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block, num_seeks, num_transfers);
-    merge(sorted_runs, mergesort_output, memory, mem_size, num_keys_block, num_seeks, num_transfers, num_merge_passes);
-}
-
-void print_mergesort_summary(string output_file,long long num_seeks, long long num_transfers, long long num_merge_passes){
+void print_mergesort_summary(string output_file, long long total_seeks, long long total_transfers, long long num_merge_passes){
     ofstream fout(output_file);
 
-    fout << "Total number of disk seeks: " << num_seeks << endl;
-    fout << "Total number of disk transfers: " << num_transfers << endl;
+    fout << "Total number of disk seeks in external mergesort: " << total_seeks << endl;
+    fout << "Total number of disk transfers in external mergesort: " << total_transfers << endl;
+    fout << "Total cost of external mergesort: " << total_seeks << " disk seeks + " << total_transfers << " disk transfers" << endl;
     fout << "Number of merge passes: " << num_merge_passes << endl;
 }
 
-void print_sorted_output(string output_file, vector<vector<int>> &mergesort_output){
+void print_mergesort_output(string output_file, vector<vector<int>> &mergesort_output){
     ofstream fout(output_file);
 
-    fout << "Sorted output with one block in every line:" << endl;
+    fout << "External mergesort output with one block per line:" << endl;
     for(int i = 0; i < mergesort_output.size(); i++){
         for(int j = 0; j < mergesort_output[i].size(); j++){
             fout << mergesort_output[i][j] << " ";
         }
         fout << endl;
     }
+}
+
+void external_mergesort(vector<vector<int>> &keys, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers, long long &num_merge_passes){
+    vector<vector<vector<int>>> sorted_runs; // runs * blocks * keys
+
+    create_sorted_runs(keys, sorted_runs, memory, mem_size, num_keys_block, total_seeks, total_transfers);
+    merge(sorted_runs, mergesort_output, memory, mem_size, num_keys_block, total_seeks, total_transfers, num_merge_passes);
+
+    print_mergesort_summary("mergesort-summary.txt", total_seeks, total_transfers, num_merge_passes);
+    print_mergesort_output("mergesort-output.txt", mergesort_output);
 }
 
 int main(int argc, char *argv[]){
@@ -181,7 +222,7 @@ int main(int argc, char *argv[]){
     int num_keys = atoi(argv[4]); // total number of keys
     int block_size = atoi(argv[5]); // disk block size in bytes
 
-    long long num_seeks = 0, num_transfers = 0;
+    long long total_seeks = 0, total_transfers = 0;
     long long num_merge_passes = 0;
 
     int num_keys_block = block_size / key_size;
@@ -190,10 +231,7 @@ int main(int argc, char *argv[]){
 
     vector<int> memory; // max size = mem_size * num_keys_block
     vector<vector<int>> mergesort_output;
-    external_mergesort(keys, mergesort_output, memory, mem_size, num_keys_block, num_seeks, num_transfers, num_merge_passes);
-
-    print_mergesort_summary("mergesort-summary.txt", num_seeks, num_transfers, num_merge_passes);
-    print_sorted_output("sorted-output.txt", mergesort_output);
+    external_mergesort(keys, mergesort_output, memory, mem_size, num_keys_block, total_seeks, total_transfers, num_merge_passes);
     
     return 0;
 }
