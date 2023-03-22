@@ -23,8 +23,8 @@ void read_keys(string keys_file, vector<vector<int>> &keys, int num_keys, int nu
 void print_sorted_runs_summary(string output_file, long long num_seeks, long long num_transfers, int num_runs){
     ofstream fout(output_file);
 
-    fout << "Number of seeks in the sorted run phase: " << num_seeks << endl;
-    fout << "Number of transfers in the sorted run phase: " << num_transfers << endl;
+    fout << "Number of disk seeks in the sorted run phase: " << num_seeks << endl;
+    fout << "Number of disk transfers in the sorted run phase: " << num_transfers << endl;
     fout << "Total cost of the sorted run phase: " << num_seeks << " disk seeks + " << num_transfers << " disk transfers" << endl;
     fout << "Number of sorted runs: " << num_runs << endl;
 }
@@ -91,15 +91,48 @@ void create_sorted_runs(vector<vector<int>> &keys, vector<vector<vector<int>>> &
     print_sorted_runs_output("sorted-runs-output.txt", sorted_runs);
 }
 
-void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers){
+void print_merge_pass_summary(string output_file, int merge_pass_count, long long num_seeks, long long num_transfers, vector<long long> &num_seeks_subphase, vector<long long> &num_transfers_subphase, int num_subphases){
+    ofstream fout(output_file);
+
+    fout << "Number of disk seeks in merge pass " << merge_pass_count << ": " << num_seeks << endl;
+    fout << "Number of disk transfers in merge pass " << merge_pass_count << ": " << num_transfers << endl;
+    fout << "Total cost of merge pass " << merge_pass_count << ": " << num_seeks << " disk seeks + " << num_transfers << " disk transfers" << endl;
+    fout << "Number of subphases in merge pass " << merge_pass_count << ": " << num_subphases << endl << endl;
+
+    fout << "Cost of each subphase of merge pass " << merge_pass_count << ":" << endl;
+    for(int i = 0; i < num_subphases; i++){
+        fout << "Subphase " << i + 1 << ": " << num_seeks_subphase[i] << " disk seeks + " << num_transfers_subphase[i] << " disk transfers" << endl;
+    }
+}
+
+void print_merge_pass_output(string output_file, vector<vector<vector<int>>> &merge_pass_output, int merge_pass_count){
+    ofstream fout(output_file);
+
+    fout << "Output of each merge pass " << to_string(merge_pass_count) << " subphase with one block per line:" << endl << endl;
+    for(int i = 0; i < merge_pass_output.size(); i++){
+        fout << "Subphase " << i + 1 << ":" << endl;
+        for(int j = 0; j < merge_pass_output[i].size(); j++){
+            for(int k = 0; k < merge_pass_output[i][j].size(); k++){
+                fout << merge_pass_output[i][j][k] << " ";
+            }
+            fout << endl;
+        }
+        fout << endl;
+    }
+}
+
+void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vector<int>>> &merge_pass_output, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers, int merge_pass_count){
     int num_runs = merge_pass_input.size();
     vector<int> block_idx(num_runs, 0);
     vector<int> num_keys_remaining(num_runs, 0);
     long long num_seeks = 0, num_transfers = 0;
+    vector<long long> num_seeks_subphase, num_transfers_subphase;
     
     for(int i = 0; i < num_runs; i += mem_size - 1){
         merge_pass_output.push_back(vector<vector<int>>());
         multiset<pair<int, int>> memory_ordered;
+        num_seeks_subphase.push_back(0);
+        num_transfers_subphase.push_back(0);
 
         // reading the first blocks of mem_size - 1 runs into memory
         for(int j = 0; j < mem_size - 1; j++){
@@ -113,8 +146,8 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
             }
             num_keys_remaining[i + j] = merge_pass_input[i + j][block_idx[i + j]].size();
             block_idx[i + j]++;
-            num_seeks++;
-            num_transfers++;
+            num_seeks_subphase.back()++;
+            num_transfers_subphase.back()++;
         }
 
         // merging mem_size - 1 runs
@@ -131,8 +164,8 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
                 // writing to disk
                 merge_pass_output.back().push_back(memory);
                 memory.clear();
-                num_seeks++;
-                num_transfers++;
+                num_seeks_subphase.back()++;
+                num_transfers_subphase.back()++;
             }
             
             if(num_keys_remaining[run_idx] == 0 && block_idx[run_idx] < merge_pass_input[run_idx].size()){
@@ -142,8 +175,8 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
                 }
                 num_keys_remaining[run_idx] = merge_pass_input[run_idx][block_idx[run_idx]].size();
                 block_idx[run_idx]++;
-                num_seeks++;
-                num_transfers++;
+                num_seeks_subphase.back()++;
+                num_transfers_subphase.back()++;
             }
         }
 
@@ -151,25 +184,34 @@ void merge_pass(vector<vector<vector<int>>> &merge_pass_input, vector<vector<vec
             // writing the remaining elements in memory to disk
             merge_pass_output.back().push_back(memory);
             memory.clear();
-            num_seeks++;
-            num_transfers++;
+            num_seeks_subphase.back()++;
+            num_transfers_subphase.back()++;
         }
+
+        num_seeks += num_seeks_subphase.back();
+        num_transfers += num_transfers_subphase.back();
     }
 
     total_seeks += num_seeks;
     total_transfers += num_transfers;
+    int num_subphases = merge_pass_output.size();
+
+    string summary_file = "merge-pass-" + to_string(merge_pass_count) + "-summary.txt";
+    string output_file = "merge-pass-" + to_string(merge_pass_count) + "-output.txt";
+    print_merge_pass_summary(summary_file, merge_pass_count, num_seeks, num_transfers, num_seeks_subphase, num_transfers_subphase, num_subphases);
+    print_merge_pass_output(output_file, merge_pass_output, merge_pass_count);
 }
 
 void merge(vector<vector<vector<int>>> &sorted_runs, vector<vector<int>> &mergesort_output, vector<int> &memory, int mem_size, int num_keys_block, long long &total_seeks, long long &total_transfers, long long &num_merge_passes){
     vector<vector<vector<vector<int>>>> merge_passes; // passes * runs * blocks * keys
     merge_passes.push_back(sorted_runs);
 
-    vector<vector<vector<int>>> merge_pass_output;
+    vector<vector<vector<int>>> merge_pass_output; // runs * blocks * keys
     int num_runs = merge_passes.back().size();
 
     while(num_runs > 1){
-        merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, total_seeks, total_transfers);
         num_merge_passes++;
+        merge_pass(merge_passes.back(), merge_pass_output, memory, mem_size, num_keys_block, total_seeks, total_transfers, num_merge_passes);
 
         merge_passes.push_back(merge_pass_output);
         num_runs = merge_passes.back().size();
